@@ -2,12 +2,17 @@ package com.example.imagemPecas.infra.repository;
 
 import com.example.imagemPecas.domain.entity.Image;
 import com.example.imagemPecas.domain.enums.ImageExtension;
+import com.example.imagemPecas.infra.repository.specs.GenericSpecs;
+import com.example.imagemPecas.infra.repository.specs.ImageSpecs;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+
+import static com.example.imagemPecas.infra.repository.specs.ImageSpecs.nameLike;
+import static com.example.imagemPecas.infra.repository.specs.ImageSpecs.tagsLike;
 
 public interface ImageRepository extends JpaRepository<Image,String>, JpaSpecificationExecutor<Image> {
 
@@ -22,23 +27,16 @@ public interface ImageRepository extends JpaRepository<Image,String>, JpaSpecifi
 
     default List<Image> findByExtensionAndNameOrTagsLike(ImageExtension extension, String query){
         //SELECT * FROM IMAGE 1 = 1
-        Specification<Image> conjunction = (root, q, criteriaBuilder) -> criteriaBuilder.conjunction();
-        Specification<Image> spec = Specification.where(conjunction);
+        Specification<Image> spec = Specification.where(GenericSpecs.conjunction());
 
         if (extension != null){
            //AND EXTENSION = 'PNG'
-           Specification<Image> extensionEqual = (root, q, cb) -> cb.equal(root.get("extension"),extension);
-           spec = spec.and(extensionEqual);
+           spec = spec.and(ImageSpecs.extensionEqual(extension));
         }
 
         if(StringUtils.hasText(query)){
             //AND ( NAME LIKE 'QUERY' OR TAGS LIKE 'QUERY' )
-            Specification<Image> nameLike = (root, q, cb) -> cb.like( cb.upper(root.get("name")), "%" + query.toUpperCase() + "%");
-            Specification<Image> tagsLike = (root, q, cb) -> cb.like( cb.upper(root.get("tags")), "%" + query.toUpperCase() + "%");
-
-            Specification<Image> nameOrtagsLike = Specification.anyOf(nameLike, tagsLike);
-
-            spec = spec.and(nameOrtagsLike);
+            spec = spec.and(Specification.anyOf(nameLike(query), tagsLike(query)));
         }
 
         return findAll(spec);
